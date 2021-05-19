@@ -53,3 +53,9 @@ a simple devops project with the use of Jenkins | Ansible | Docker | Kubernetes
   
 <img src="./docs/6.png"/>
 <img src="./docs/7.png"/>
+
+## Jenkins Installation
+
+> The whole documentation for installation can be found [here](jenkins/01.jenkins_installation.MD)
+
+- Go into aws console and create an EC2 instance
