@@ -20,6 +20,7 @@
     - [Maven Setup](#maven-setup)
   - [Integrating Tomcat server in pipeline](#integrating-tomcat-server-in-pipeline)
     - [Install Tomcat](#install-tomcat)
+    - [Integrate Tomcat server with Jenkins](#integrate-tomcat-server-with-jenkins)
   - [Integrating Docker in pipeline](#integrating-docker-in-pipeline)
   - [Integrating Ansible in pipeline](#integrating-ansible-in-pipeline)
   - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
@@ -183,6 +184,7 @@ To provision the infrastructure using terraform,
 ```sh
 > cd terraform/tomcat-server/config
 > AWS_DEFAULT_REGION=us-east-1 aws ec2 create-key-pair --key-name tomcat --query 'KeyMaterial' --output text > tomcat.pem
+> chmod 400 tomcat.pem
 ```
 
 To provision the infrastructure using terraform,
@@ -196,6 +198,13 @@ To provision the infrastructure using terraform,
 ```
 
 - Login to the instance and setup the necessary port numbers.
+- We need to also add some users in `context.xml` so users can log into the `ManagerApp` tomcat server from outside.
+- `find / -name context.xml` and edit the files under `webapps`.
+
+
+### Integrate Tomcat server with Jenkins
+
+- We need to integrate tomcat server with jenkins for deployment.
 
 ## Integrating Docker in pipeline
 
