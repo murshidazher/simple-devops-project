@@ -12,6 +12,14 @@ export PATH=$PATH:$JAVA_HOME/bin:$JRE_HOME/bin
 EOL
 source /etc/profile
 
+cat >>~/.bashrc <<EOL
+
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+export JRE_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
+PATH="${JAVA_HOME}/bin:${PATH}"
+EOL
+source ~/.bashrc
+
 cd /opt
 export VER="8.5.66"
 wget https://downloads.apache.org/tomcat/tomcat-8/v${VER}/bin/apache-tomcat-${VER}.tar.gz
