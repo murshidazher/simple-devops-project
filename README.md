@@ -1,14 +1,37 @@
-# simple-devops-project
-a simple devops project with the use of Jenkins | Ansible | Docker | Kubernetes
+# [simple-devops-project]()
 
-## 1. Setup CI/CD with Jenkins, Git, Maven and Tomcat
+> A simple devops project with the use of Jenkins, Ansible, Docker and Kubernetes.
+
+## Table of Contents
+
+- [simple-devops-project](#simple-devops-project)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [1. Setup CI/CD with Jenkins, Git, Maven and Tomcat](#1-setup-cicd-with-jenkins-git-maven-and-tomcat)
+    - [2. Introducing Docker](#2-introducing-docker)
+    - [3. Integration with Ansible](#3-integration-with-ansible)
+    - [4. Introducing Kubernetes](#4-introducing-kubernetes)
+  - [What is CI/CD ?](#what-is-cicd-)
+  - [Jenkins Deploy on EC2/VM](#jenkins-deploy-on-ec2vm)
+    - [Jenkins Installation](#jenkins-installation)
+    - [Creating the Infra using Terraform](#creating-the-infra-using-terraform)
+    - [Creating a Job](#creating-a-job)
+  - [Integrating Tomcat server in pipeline](#integrating-tomcat-server-in-pipeline)
+  - [Integrating Docker in pipeline](#integrating-docker-in-pipeline)
+  - [Integrating Ansible in pipeline](#integrating-ansible-in-pipeline)
+  - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
+  - [License](#license)
+
+## Overview
+
+### 1. Setup CI/CD with Jenkins, Git, Maven and Tomcat
 
 - Setup Jenkins
 - Run a test job
 - Setup & configure Maven and Git
 - Setup Tomcat Server
-- Installing addtional required plugins
-- Integrating Git, Mavan in Jenkins job
+- Installing additional required plugins
+- Integrating Git, Maven in Jenkins job
 - Run CI/CD job
 
 <img src="./docs/1.png"/>
@@ -54,7 +77,13 @@ a simple devops project with the use of Jenkins | Ansible | Docker | Kubernetes
 <img src="./docs/6.png"/>
 <img src="./docs/7.png"/>
 
-## Jenkins Installation
+## Jenkins Deploy on EC2/VM
+
+- Jenkins pulls the code from git and deploys the code to EC2 instance running tomcat.
+
+<img src="./docs/9.png"/>
+
+### Jenkins Installation
 
 > The whole documentation for installation can be found [here](jenkins/01.jenkins_installation.MD)
 
@@ -92,22 +121,34 @@ http://YOUR-SERVER-PUBLIC-IP:8080
 
 ### Creating the Infra using Terraform
 
-- Create a s3 bucket manually named `cloud-remote-state-dev`
+> If you don't want to manually create the ec2 instance, we can run the terraform code.
+
+- Create a s3 bucket manually named `javahome-tf-1212`
 
 ```sh
-> AWS_PROFILE=jam aws ec2 create-key-pair --key-name jenkins --query 'KeyMaterial' --output text > jenkins.pem
+> AWS_DEFAULT_REGION=us-east-1 aws ec2 create-key-pair --key-name jenkins --query 'KeyMaterial' --output text > jenkins.pem
 ```
 
 We need to point the `tfvars` environment files when running the command
 
 ```sh
-> AWS_PROFILE=jam terraform plan --var-file=/Users/murshidazher/dev/src/github/simple-devops-project/terraform/01.jenkins_server/env-config/env.tfvars
-> AWS_PROFILE=jam terraform apply --var-file=/Users/murshidazher/dev/src/github/simple-devops-project/terraform/01.jenkins_server/env-config/env.tfvars
+> terraform init
+> terraform plan 
+> terraform apply -auto-approve
+> terraform output
 ```
 
 ### Creating a Job
 
 > Go to `New Item` > `Jobs`
+
+## Integrating Tomcat server in pipeline
+
+## Integrating Docker in pipeline
+
+## Integrating Ansible in pipeline
+
+## Integrating Kubernetes in pipeline
 
 ## License
 
