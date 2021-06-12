@@ -205,6 +205,16 @@ To provision the infrastructure using terraform,
 ### Integrate Tomcat server with Jenkins
 
 - We need to integrate tomcat server with jenkins for deployment.
+- Go to the jenkins serve and to install on vm we need an additional plugin called `deploy to container`. So we need to install it.
+- Create a new job to deploy to vm > `new item` > `deploy_on_tomcat_server` > `maven project`
+- Choose git and give the repository url. Select `main` branch.
+- Goals: `clean install package`
+- Since we need to deploy it once successful, we need to add `post-build action` > `deploy war/ear to a container`  > give the war file location > `**/*.war`
+- Select `add to container` > `tomcat v8` > to deploy to tomcat server it should accept jenkins credentials. Since we created couple of users we can use those users.
+- Give the `deployer` credential and add the tomcat url `http://x.xx.xx.x:8080/` > Apply > Save
+- Run the job by pressing `Build now`.
+- So now when we run this job it will deploy the war file to tomcat server. The jenkins will copy the files to `/opt/tomcat/webapps/` directory.
+- To access the application we need to give the war file name. i.e. `http://x.xx.xx.x:8080/webapp`
 
 ## Integrating Docker in pipeline
 
