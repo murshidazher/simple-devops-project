@@ -16,7 +16,10 @@
     - [Jenkins Installation](#jenkins-installation)
     - [Creating the Infra using Terraform](#creating-the-infra-using-terraform)
     - [Creating a Job](#creating-a-job)
+    - [Github Setup](#github-setup)
+    - [Maven Setup](#maven-setup)
   - [Integrating Tomcat server in pipeline](#integrating-tomcat-server-in-pipeline)
+    - [Install Tomcat](#install-tomcat)
   - [Integrating Docker in pipeline](#integrating-docker-in-pipeline)
   - [Integrating Ansible in pipeline](#integrating-ansible-in-pipeline)
   - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
@@ -126,10 +129,11 @@ http://YOUR-SERVER-PUBLIC-IP:8080
 - Create a s3 bucket manually named `javahome-tf-1212`
 
 ```sh
+> cd terraform/jenkins-ci/config
 > AWS_DEFAULT_REGION=us-east-1 aws ec2 create-key-pair --key-name jenkins --query 'KeyMaterial' --output text > jenkins.pem
 ```
 
-We need to point the `tfvars` environment files when running the command
+To provision the infrastructure using terraform,
 
 ```sh
 > terraform init
@@ -140,9 +144,58 @@ We need to point the `tfvars` environment files when running the command
 
 ### Creating a Job
 
-> Go to `New Item` > `Jobs`
+- Go to `New Item` > `Jobs` > Give it a name
+- Give some description and for now the source code is `none` since we haven't installed any source code management plugins.
+- Build select `execute shell` because our target system is `ubuntu`
+- We can `Apply` > `Save`
+- If we need to edit it again we can press configure else we can do an initial build.
+
+### Github Setup
+
+> Read documentation on [github jenkins setup](./notes/jenkins/Git_plugin_install.MD).
+
+- The first step of installation can be skipped if we use terraform code to spin up the ec2 instance.
+
+### Maven Setup
+
+> Read documentation on [maven setup](./notes/jenkins/maven_install.MD).
+
+- Sometimes in ubuntu the maven home would be `/usr/share/maven`
+- Now, lets create a new item. `MyFirstMavenBuild` > Select `Maven Project`
+- To build with maven we need to have source code. Get the git clone url `https://github.com/murshidazher/simple-devops-hello-world.git` of the source code.
+- Choose git and provide the repository url.
+- Goals: `clean install package`
+- Apply and save
+- Build now
+- Workspace will contain all the files of the repo and the build maven war file can be found in `webapp > target > webapp.war`
+- You can find then locally under `cd /var/lib/jenkins/workspace`
+- Though we have a war file, we currently don't have any `target environment` to host these files. So we need to setup a tomcat server to host the war file.
 
 ## Integrating Tomcat server in pipeline
+
+### Install Tomcat
+
+> Read documentation on [how to setup a tomcat server](./notes/tomcat/01.tomcat_installation.MD).
+
+- We need to create a new `ec2` instance to host the tomcat server.
+- We also need to create users so that tomcat server will allows jenkins server to host the war file. So we need to create couple of users and roles.
+
+```sh
+> cd terraform/tomcat-server/config
+> AWS_DEFAULT_REGION=us-east-1 aws ec2 create-key-pair --key-name tomcat --query 'KeyMaterial' --output text > tomcat.pem
+```
+
+To provision the infrastructure using terraform,
+
+```sh
+> terraform init
+> terraform plan 
+> terraform apply -auto-approve
+> terraform refresh
+> terraform output
+```
+
+- Login to the instance and setup the necessary port numbers.
 
 ## Integrating Docker in pipeline
 
