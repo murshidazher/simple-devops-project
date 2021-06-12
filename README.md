@@ -21,7 +21,10 @@
   - [Integrating Tomcat server in pipeline](#integrating-tomcat-server-in-pipeline)
     - [Install Tomcat](#install-tomcat)
     - [Integrate Tomcat server with Jenkins](#integrate-tomcat-server-with-jenkins)
+    - [Automatic Deploy on Code change](#automatic-deploy-on-code-change)
   - [Integrating Docker in pipeline](#integrating-docker-in-pipeline)
+    - [Docker env setup](#docker-env-setup)
+    - [Integrating Docker host with Jenkins server](#integrating-docker-host-with-jenkins-server)
   - [Integrating Ansible in pipeline](#integrating-ansible-in-pipeline)
   - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
   - [License](#license)
@@ -120,6 +123,7 @@ http://YOUR-SERVER-PUBLIC-IP:8080
 - `apply` > `save`
 
 ```sh
+> ssh -o IdentitiesOnly=yes -i key.pem ec2-user@x.x.x.x
 > echo $JAVA_HOME #copy the path
 ```
 
@@ -216,7 +220,31 @@ To provision the infrastructure using terraform,
 - So now when we run this job it will deploy the war file to tomcat server. The jenkins will copy the files to `/opt/tomcat/webapps/` directory.
 - To access the application we need to give the war file name. i.e. `http://x.xx.xx.x:8080/webapp`
 
+### Automatic Deploy on Code change
+
+> How to automatically trigger a new build on code change ?
+
+- Edit `deploy_on_tomcat_server` and configure
+- Scroll down and then `Build trigger` section, if we specify `build periodically` then we need to add a cron job.
+- `PollSCM` also is like cron job where it will fetch the repository periodically. If there wasnt any changes during that period of time, then it wont trigger that job. `* * * * *` - every minute, every hour, every day, every week, every month it should get executed. If you need to execute once a day around 12'o clock `00 12 * * *`
+- Now if we push a code change, it will be automatically triggered.
+- Here we are using jenkins as build and deployment tool.
+
 ## Integrating Docker in pipeline
+
+> In this instead of deploying it into tomcat server we will deploy it to docker host.
+
+### Docker env setup
+
+- Docker containers are created out of docker images which are created using Dockerfile.
+- We can use the images from Dockerhub. If we need to pull images from private repositories then we need to login to docker using `docker login`.
+
+### Integrating Docker host with Jenkins server
+
+- We need to connect jenkins server with docker host server, so that it can transfer the host war files.
+- For this purpose we need to install a plugin called `Publish over SSH` in our jenkins server. Then we need to add docker host credentials to the jenkins server so that jenkins server can authenticate itself using this credentials.
+- To add docker server credentials in jenkins, we need to create a user called  `dockeradmin` in docker server.
+- Now, we need to give the docker credentials in jenkins server. `Manage Jenkins` > `Configure system`
 
 ## Integrating Ansible in pipeline
 

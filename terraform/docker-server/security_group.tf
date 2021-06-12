@@ -12,7 +12,7 @@ data "terraform_remote_state" "jenkins_server" {
   }
 }
 
-resource "aws_security_group" "allow_jenkins_tomcat" {
+resource "aws_security_group" "allow_jenkins_docker" {
   description = "Allow jenkins traffic"
   ingress {
     description = "allow ssh to system"
