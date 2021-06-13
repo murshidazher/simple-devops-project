@@ -33,7 +33,15 @@
     - [Ansible Environment Setup](#ansible-environment-setup)
     - [Integrate Ansible with Jenkins](#integrate-ansible-with-jenkins)
     - [Create an Ansible Playbook](#create-an-ansible-playbook)
+    - [Run Ansible Playbook from Jenkins](#run-ansible-playbook-from-jenkins)
+    - [DockerHub Integration with Ansible](#dockerhub-integration-with-ansible)
+    - [Tagging images with Ansible Playbook](#tagging-images-with-ansible-playbook)
+      - [Create playbook to push image to Dockerhub](#create-playbook-to-push-image-to-dockerhub)
+      - [Create pull playbook for Docker hosts](#create-pull-playbook-for-docker-hosts)
+    - [Jenkins Job to deploy on Docker container through Dockerhub](#jenkins-job-to-deploy-on-docker-container-through-dockerhub)
+    - [Jenkins job to deploy a war file on Docker container using Ansible](#jenkins-job-to-deploy-a-war-file-on-docker-container-using-ansible)
   - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
+    - [Setting up Kubernetes with AWS EC2](#setting-up-kubernetes-with-aws-ec2)
   - [License](#license)
 
 ## Overview
@@ -450,6 +458,7 @@ localhost
   - `password`: `give the ansadmin password` and test configuration
   - `apply` > `save`
 - Create a job > `deploy_on_container_using_ansible` > copy from: `deploy_on_container`
+  - Enable `PollSCM` > `* * * * *`
   - SSH Name: `ansible-server`
   - Remote directory: `//opt/docker`
   - Exec command: ``
@@ -458,7 +467,218 @@ localhost
 
 ### Create an Ansible Playbook
 
+- Login to the ansible server
+- Copy over same dockerfile to `/opt/docker` in the `ansible-host` server.
+- Then we will write an ansible playbook to automate the creation of docker image.
+- create a file called `simple-devops-image.yml`, refer this file [create-docker-image.yml](notes/jenkins_jobs/create-docker-image.yml)
+  - `become: true` makes root privileges
+  - `chdir` go inside this folder.
+- create a local host file to create the docker image locally, `vi hosts` > add `localhost`
+- `--check` flag will show you how the playbook is going to be executed
+
+```sh
+> ansible-playbook -i hosts simple-devops-image.yml --check
+> ansible-playbook -i hosts simple-devops-image.yml
+> docker images
+```
+
+- we can create another playbook or use the same yml file to create a container, [create-docker-container.yml](notes/jenkins_jobs/create-docker-container.yml)
+
+```sh
+> ansible-playbook -i hosts create-docker-container.yml --check
+> ansible-playbook -i hosts create-docker-container.yml
+> docker ps -a
+```
+
+### Run Ansible Playbook from Jenkins
+
+- Before running the playbook from jenkins, remove all the containers,
+
+```sh
+> docker ps -a
+> docker rm <id>
+> docker images
+> docker rmi simple-docker-image tomcat
+```
+
+- Go to ansible dashboard > edit the job `deploy_on_container_using_ansible` > `configure`
+- Go to exec command;
+
+```sh
+> ansible-playbook -i /opt/docker/hosts /opt/docker/simple-devops-image.yml;
+> ansible-playbook -i /opt/docker/hosts /opt/docker/create-docker-container.yml;
+```
+
+- Apply > Save > build now
+- When the job is done `http://<ip-address-of-ansible>:8080/webapp` will be hosted currently in the ansible server.
+- If we run the job the second time it will fail because we cant create two container with the same name. To overcome this problem we need to remove the existing container before creating a new container.
+- Create a new playbook called [simple-docker-project.yml](notes/jenkins_jobs/simple-docker-project.yml). `Ignore error: yes` meaning that if there is no running container it wont throw an error.
+- change the exec command in the job,
+
+```sh
+> ansible-playbook -i /opt/docker/hosts /opt/docker/simple-docker-project.yml;
+```
+
+### DockerHub Integration with Ansible
+
+- In real world, ansible might have to manage hundreds of servers to push the images. In this case we would leverage another tool called `DockerHub`.
+- So whenever, we build an image we will store that image in dockerhub. Whenever, the target environment builds an image then it will pull it from dockerhub and creates it own container.
+- Create a [docker hub](https://hub.docker.com) account.
+- Go to ansible server,
+- Create an image to push into docker hub,
+
+```sh
+> docker images
+> ansible-playbook -i hosts simple-docker-project.yml
+> docker images
+> docker tag simple-docker-project <dockr_hub_username>/simple-docker-project
+> docker login 
+> docker push <dockr_hub_username>/simple-docker-project
+> docker rmi simple-docker-project # remove from local system
+> docker pull <dockr_hub_username>/simple-docker-project # pull img from hub
+```
+
+- We need to pull the same image to all managed docker hosts, go to docker server
+
+```sh
+> su - ansadmin
+> id # see if the user is added to docker group
+> exit # exit if not
+> usermod -aG docker ansadmin
+> su - ansadmin
+> docker pull <dockr_hub_username>/simple-docker-project
+```
+
+- Now, we can create containers out of this image.
+
+### Tagging images with Ansible Playbook
+
+- We need two ansible playbooks,
+  - one to run on `ansible-server` to build the images and push it on dockerhub.
+  - second playbook will be on all the target docker servers, whenever we run that playbook it will pull the image and build the containers out of it.
+
+#### Create playbook to push image to Dockerhub
+
+- create the first ansible playbook in `ansible-host-server`, `create-simple-devops-image.yml`
+
+```yml
+---
+- hosts: ansible-server
+  become: true
+
+  tasks:
+  - name: create docker image using war file
+    command: docker build -t simple-devops-image:latest .
+    args:
+      chdir: /opt/docker
+
+  - name: create tag to image
+    command: docker tag simple-devops-image murshidazher/simple-devops-image
+
+  - name: push image on to dockerhub
+    command: docker push murshidazher/simple-devops-image
+
+  - name: remove docker images form ansible server
+    command: docker rmi simple-devops-image:latest murshidazher/simple-devops-image
+    ignore_errors: yes
+```
+
+```sh
+> ansible-playbook -i hosts create-simple-devops-image.yml
+```
+
+#### Create pull playbook for Docker hosts
+
+- Create another playbook in `ansible-host` server called `create-simple-devops-project.yml`
+
+```yml
+---
+- hosts: all
+  become: true
+  tasks:
+  - name: stop if we have old docker container
+    command: docker stop simple-devops-container
+    ignore_errors: yes
+
+  - name: remove stopped docker container
+    command: docker rm simple-devops-container
+    ignore_errors: yes
+
+  - name: remove current docker image
+    command: docker rmi murshidazher/simple-devops-image:latest
+    ignore_errors: yes
+
+
+  - name: pull image from dockerhub
+    command: docker pull murshidazher/simple-devops-image
+    args:
+      chdir: /opt/docker
+
+  - name: creating docker image
+    command: docker run -d --name simple-devops-container -p 8080:8080 murshidazher/simple-devops-image:latest
+```
+
+```sh
+> ansible-playbook -i hosts create-simple-devops-project.yml
+```
+
+- Now, lets add the target system ips in the host file
+
+```sh
+> vi /opt/docker/hosts
+localhost
+<ip_addr_docker_host>
+```
+
+### Jenkins Job to deploy on Docker container through Dockerhub
+
+- We've two playbooks in the `ansible-host-server`,
+  - `create-simple-devops-image.yml` to push image into dockerhub
+  - `create-simple-devops-project.yml` to pull image from dockerhub
+- We need to only run the `create-simple-devops-image.yml` on `ansible-host`, for that we can use the `limit` flag to limit it to only one host in the `hosts` file.
+
+```sh
+> ansible-playbook -i hosts create-simple-devops-image.yml --limit localhost
+```
+
+- Similarly, we need to run the `create-simple-devops-project.yml` playbook only on the dockerhost.
+- To test the script, remove any running container in `docker-host`
+
+```sh
+> docker ps -a 
+> docker stop <id>
+> docker rm <id>
+> docker images
+> docker rmi murshidazher/simple-devops-image
+```
+
+- Now execute the playbook from `ansible-server`
+
+```sh
+> ansible-playbook -i hosts create-simple-devops-project.yml --limit <ip_addr_docker_host>
+```
+
+### Jenkins job to deploy a war file on Docker container using Ansible
+
+- Next, we need to automate the above process to work through the jenkins job itself.
+- Create a new job called `deploy_on_docker_container_using_ansible_playbook` > copy from: `deploy_on_container_using_ansible` > ok
+- Change the exec command
+
+```sh
+ansible-playbook -i /opt/docker/hosts /opt/docker/create-simple-devops-image.yml --limit localhost;
+ansible-playbook -i /opt/docker/hosts /opt/docker/create-simple-devops-project.yml --limit <ip_addr_docker_host>;
+```
+
+- Apply and save
+
+💡 Now assume that due to some problem your docker container is not working. We need to create it manually or we should re-run our jenkins job. But jenkins job will only get executed when there is a new build. To overcome this problem, we need some technology to maintain our docker container. Google comes up with a technology called `kubernetes`, which if it finds a faulty container it would replace it with a new container or desired capacity of containers are not found it will create new ones.
+
 ## Integrating Kubernetes in pipeline
+
+### Setting up Kubernetes with AWS EC2
+
+- We need to deploy it using kubernetes and set up kubernetes cluster.
+- We need a `ubuntu` server for this setup
 
 ## License
 
