@@ -13,7 +13,7 @@
 
 1. Install kubectl on ubuntu instance
    ```sh
-   
+
    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
     chmod +x ./kubectl
     sudo mv ./kubectl /usr/local/bin/kubectl
@@ -25,7 +25,7 @@
     chmod +x kops-linux-amd64
     sudo mv kops-linux-amd64 /usr/local/bin/kops
     kops version (it should be 1.15.0)
-    Note: use below command if you wish to use latest version. For now we could see latest version of kops. So ignore it until further update. 
+    Note: use below command if you wish to use latest version. For now we could see latest version of kops. So ignore it until further update.
     # curl -LO https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64
 
     ```
@@ -39,7 +39,7 @@
 
 1. Create a Route53 private hosted zone (you can create Public hosted zone if you have a domain)
    ```sh
-   Routeh53 --> hosted zones --> created hosted zone  
+   Routeh53 --> hosted zones --> created hosted zone
    Domain Name: valaxy.net
    Type: Private hosted zone for Amazon VPC. Make sure you are chosing right VPC if you have multiple
    ```
@@ -60,36 +60,35 @@
 
 1. Create kubernetes cluster definitions on S3 bucket
    ```sh
-   kops create cluster --cloud=aws --zones=ap-south-1b --name=demo.k8s.valaxy.net --dns-zone=valaxy.net --dns private 
+   kops create cluster --cloud=aws --zones=ap-south-1b --name=demo.k8s.valaxy.net --dns-zone=valaxy.net --dns private
     ```
 
-1. Create kubernetes cluser
+1. Create kubernetes cluster on aws cloud (wait 5 - 10 mins to the command to execute)
     ```sh
     kops update cluster demo.k8s.valaxy.net --yes
     ```
-1. To cahnge the kubernetes master and worker instance sizes 
-   ```sh 
+1. To change the kubernetes master and worker instance sizes
+   ```sh
    kops edit ig --name=<cluster_name> nodes
-   #kops edit ig --name=demo.k8s.valaxy.net nodes 
+   #kops edit ig --name=demo.k8s.valaxy.net nodes
    kops edit ig --name=<cluster_name> master-<zone_name>
    #kops edit ig --name=demo.k8s.valaxy.net master-ap-south-1b
    ```
 1. to Delete cluster (try once your lab is done)
-   ```sh 
+
+   ```sh
    kops delete cluster <cluster_name> --yes
    ```
-1. Validate your cluster
+2. Validate your cluster
      ```sh
       kops validate cluster
     ```
 
-1. To list nodes
+3. To list nodes
    ```sh
    kubectl get nodes
    ```
 
-
-   
 #### Deploying Nginx pods on Kubernetes
 1. Deploying Nginx Container
     ```sh

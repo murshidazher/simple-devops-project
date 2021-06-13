@@ -678,7 +678,8 @@ ansible-playbook -i /opt/docker/hosts /opt/docker/create-simple-devops-project.y
 ### Setting up Kubernetes with AWS EC2
 
 - We need to deploy it using kubernetes and set up kubernetes cluster.
-- We need a `ubuntu` server for this setup
+- We need an `ubuntu` server instance for this setup, this is not a part of the kubernetes cluster. This is the `k8s-management-server`
+- We also need `kops` which is useful for settings up kubernetes cluster in aws.
 
 ## License
 

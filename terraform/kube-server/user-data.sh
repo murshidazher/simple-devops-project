@@ -28,25 +28,16 @@ git --version
 apt install python3-pip -y
 pip3 install awscli
 apt install unzip
-wget -q https://releases.hashicorp.com/terraform/0.11.6/terraform_0.11.6_linux_amd64.zip
-unzip terraform_0.11.6_linux_amd64.zip
-mv terraform /usr/local/bin/terraform
-terraform version
 
-apt update
-apt install maven -y
-mvn -version
-cat >>/etc/profile.d/maven.sh <<EOL
+# install kube ctl
+curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+chmod +x ./kubectl
+sudo mv ./kubectl /usr/local/bin/kubectl
 
-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-export JRE_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre
-export M2_HOME=/usr/share/maven
-export M2=/usr/share/maven/bin
-export MAVEN_HOME=/usr/share/maven
-export PATH="${M2}:${M2_HOME}:${PATH}"
-EOL
-chmod +x /etc/profile.d/maven.sh
-source /etc/profile.d/maven.sh
-mvn -version
+# install kops
+curl -LO https://github.com/kubernetes/kops/releases/download/1.15.0/kops-linux-amd64
+chmod +x kops-linux-amd64
+sudo mv kops-linux-amd64 /usr/local/bin/kops
+kops
 
 echo "----- End of Updates -----"
