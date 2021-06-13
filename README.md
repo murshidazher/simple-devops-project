@@ -42,6 +42,10 @@
     - [Jenkins job to deploy a war file on Docker container using Ansible](#jenkins-job-to-deploy-a-war-file-on-docker-container-using-ansible)
   - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
     - [Setting up Kubernetes with AWS EC2](#setting-up-kubernetes-with-aws-ec2)
+    - [Create deployment and service YAML files](#create-deployment-and-service-yaml-files)
+    - [Integrate Ansible Playbooks with Kubernetes](#integrate-ansible-playbooks-with-kubernetes)
+    - [Create depl and service using Ansible](#create-depl-and-service-using-ansible)
+    - [Jenkins CD Job to deploy on kubernetes](#jenkins-cd-job-to-deploy-on-kubernetes)
   - [License](#license)
 
 ## Overview
@@ -680,6 +684,126 @@ ansible-playbook -i /opt/docker/hosts /opt/docker/create-simple-devops-project.y
 - We need to deploy it using kubernetes and set up kubernetes cluster.
 - We need an `ubuntu` server instance for this setup, this is not a part of the kubernetes cluster. This is the `k8s-management-server`
 - We also need `kops` which is useful for settings up kubernetes cluster in aws.
+- `aws configure` you don't need to give username or password since we've attached role so only configure the `default region`.
+- We need to create an s3 bucket for keeping k8s configurations and `ssh-keygen` for logging into the k8s cluster.
+- The `id_rsa.pub` will be copied onto to the kubernetes cluster. We will use the `id_rsa` key to login.
+- We can edit the master of the cluster using the `kops edit ig --name=...` command. This will contain the min and max clusters.
+- Install kubectl on the master node and manage the cluster from that rather than `k8s-management-server`. When logging to the `master` node from `k8s-management-server` login as an `admin` user. ie. `ssh -i ~/.ssh/id_rsa admin@xx.x..x..`  
+
+```sh
+> kubectl get nodes 
+> kubectl get pods
+> kubectl get deploy
+> kubectl get service   
+```
+
+- Whenever we create a deploy we will create replica sets. Which will make sure that these application are available all time.
+- replicas two means will create two pods
+- To deploy nginx on kubernetes cluster we will run,
+
+```sh
+> kubectl run --generator=run-pod/v1 sample-nginx --image=nginx --replicas=2 --port=80 
+> kubectl get deploy
+> kubectl get pods -o wide
+> kubectl expose deployment sample-nginx --port=80 --type=LoadBalancer # we need to create a service to expose the pods to outside
+> kubectl get services -o wide
+```
+
+- Give master server ip followed by port. `http://<master_server_ip>:port` and make sure that the security group exposes that defined port.
+- To remove pods
+
+```sh
+> kubectl delete pods <pod_names> # it will create new pods
+```
+
+- In real world, we create containers and pods using yaml files. If we have new deployment we delete the old pods and create new ones.
+
+### Create deployment and service YAML files
+
+- We will create the deployment file [valaxy-deploy.yml](notes/kubernetes/valaxy-deploy.yml)
+- We will create the service file [valaxy-service.yml](notes/kubernetes/valaxy-service.yml)
+- Add these two files to `k8s-management-server`.
+- First we need to create a deployment and then the service.
+
+```sh
+> kubectl apply -f valaxy-deploy.yml
+> kubectl get deployments
+> kubectl delete deployments sample-nginx # remove previous deployments
+> kubectl get services
+> kubectl delete services sample-nginx
+> kubectl apply -f valaxy-service.yml
+> kubectl get pods -o wide
+```
+
+### Integrate Ansible Playbooks with Kubernetes
+
+> Go through this documentation for [integrating kubernetes with ansible](notes/kubernetes/Integrating_Kubernetes_with_Ansible.MD).
+
+- Login to ansible server and `sudo su - ansadmin`
+- If we need to login to kubernetes cluster without password then we need to copy the public key to kubernetes cluster.
+
+```sh
+> cat id_rsa.pub #copy the contents
+```
+
+- Go to the `k8s-master` and under root account
+
+```sh
+> cd ~/.ssh
+> ls
+> cat >> authorized_keys <paste_copied_public_key>
+```  
+
+- Now, we can login from ansible server to k8s master node as root user
+
+```sh
+> ssh -i ~/.ssh/id_rsa root@<master_node_ip>
+> exit
+```
+
+- Now we need to add new kubernetes group
+
+```sh
+> cd /opt
+> sudo mkdir kubernetes
+> cd kubernetes
+> sudo vi hosts
+[ansible-server]
+localhost
+
+[kubernetes]
+<master_k8s_node_ip>
+```
+
+- We will create [deployment](notes/kubernetes/kubernetes-valaxy-deployment.yml) and [service](notes/kubernetes/kubernetes-valaxy-service.yml) playbooks inside `/opt/kubernetes`. In the files, hosts: `kubernetes` is the hosts group we created in hosts file. The playbook will run on the ips under this group. We need to login as `root` user so thats why the yaml file mentions `user: root`.
+
+### Create depl and service using Ansible
+
+- Delete the deployment and services from the `k8s-master-node` and deploy using the jenkins server
+
+```sh
+> kubectl get deployments
+> kubectl delete deployments valaxy-deployment
+> kubectl get services
+> kubectl delete services valaxy-services
+```
+
+- Now, go to the ansible server
+
+```sh
+> ansible-playbook -i hosts kubernetes-valaxy-deployment.yml
+> ansible-playbook -i hosts kubernetes-valaxy-service.yml
+```
+
+- Now, if we go to the k8s master node we will see thats deployed successfully,
+
+```sh
+> kubectl get deployments
+> kubectl get pods
+> kubectl get services
+```
+
+### Jenkins CD Job to deploy on kubernetes
 
 ## License
 
