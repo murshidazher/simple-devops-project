@@ -1,6 +1,6 @@
 # [simple-devops-project](https://github.com/murshidazher/simple-devops-project)
 
-> A simple devops project with the use of Jenkins, Ansible, Docker and Kubernetes.
+> A simple devops project with the use of jenkins, ansible, docker, kubernetes, tomcat, aws
 
 ## Table of Contents
 
@@ -25,7 +25,14 @@
   - [Integrating Docker in pipeline](#integrating-docker-in-pipeline)
     - [Docker env setup](#docker-env-setup)
     - [Integrating Docker host with Jenkins server](#integrating-docker-host-with-jenkins-server)
+    - [Jenkins job to copy artifacts onto Dockerhost](#jenkins-job-to-copy-artifacts-onto-dockerhost)
+    - [Create a Dockerfile to container](#create-a-dockerfile-to-container)
+    - [Deploying a war file on Docker container using Jenkins](#deploying-a-war-file-on-docker-container-using-jenkins)
+    - [Limitation of Jenkins as Deployment tool](#limitation-of-jenkins-as-deployment-tool)
   - [Integrating Ansible in pipeline](#integrating-ansible-in-pipeline)
+    - [Ansible Environment Setup](#ansible-environment-setup)
+    - [Integrate Ansible with Jenkins](#integrate-ansible-with-jenkins)
+    - [Create an Ansible Playbook](#create-an-ansible-playbook)
   - [Integrating Kubernetes in pipeline](#integrating-kubernetes-in-pipeline)
   - [License](#license)
 
@@ -41,7 +48,11 @@
 - Integrating Git, Maven in Jenkins job
 - Run CI/CD job
 
-<img src="./docs/1.png"/>
+<details>
+  <summary>Architecture</summary>
+  <img src="./docs/1.png"/>
+</details>
+
 
 ### 2. Introducing Docker
 
@@ -51,7 +62,10 @@
 - Writing a Docker file
 - Run a job
 
-<img src="./docs/2.png"/>
+<details>
+  <summary>Architecture</summary>
+  <img src="./docs/2.png"/>
+</details>
 
 ### 3. Integration with Ansible
 
@@ -60,7 +74,10 @@
 - Writing a Ansible playbook to deploy on container
 - Run a job
 
-<img src="./docs/3.png"/>
+<details>
+  <summary>Architecture</summary>
+  <img src="./docs/3.png"/>
+</details>
 
 ### 4. Introducing Kubernetes
 
@@ -68,7 +85,10 @@
 - Write deployment and service files
 - Run a job
 
-<img src="./docs/4.png"/>
+<details>
+  <summary>Architecture</summary>
+  <img src="./docs/4.png"/>
+</details>
 
 ## What is CI/CD ?
 
@@ -77,18 +97,28 @@
 - Continuos Deployment (CD) - No manual intervention
 - CI process with result in an artifact which is used in the staging env.
 
-<img src="./docs/5.png"/>
+<details>
+  <summary>CI/CD Architecture</summary>
+  <img src="./docs/5.png"/>
+</details>
 
 - If this whole process happens without any manual intervention then its continuos deployment.
   
-<img src="./docs/6.png"/>
-<img src="./docs/7.png"/>
+<details>
+  <summary>Continuous deployment Architecture</summary>
+  
+  <img src="./docs/6.png"/>
+  <img src="./docs/7.png"/>
+</details>
 
 ## Jenkins Deploy on EC2/VM
 
 - Jenkins pulls the code from git and deploys the code to EC2 instance running tomcat.
 
-<img src="./docs/9.png"/>
+<details>
+  <summary>EC2 Architecture</summary>
+  <img src="./docs/9.png"/>
+</details>
 
 ### Jenkins Installation
 
@@ -97,7 +127,10 @@
 - Go into aws console and create an EC2 instance
 - We can use `MobaXterm` or PuTTy to connect to the server, but we don't need to convert the key when using with `MobaXTerm`
 
-<img src="./docs/8.png"/>
+<details>
+  <summary>Jenkins Architecture</summary>
+  <img src="./docs/8.png"/>
+</details>
 
 ```sh
 > sudo su - # be the root user
@@ -205,7 +238,6 @@ To provision the infrastructure using terraform,
 - We need to also add some users in `context.xml` so users can log into the `ManagerApp` tomcat server from outside.
 - `find / -name context.xml` and edit the files under `webapps`.
 
-
 ### Integrate Tomcat server with Jenkins
 
 - We need to integrate tomcat server with jenkins for deployment.
@@ -244,12 +276,190 @@ To provision the infrastructure using terraform,
 - We need to connect jenkins server with docker host server, so that it can transfer the host war files.
 - For this purpose we need to install a plugin called `Publish over SSH` in our jenkins server. Then we need to add docker host credentials to the jenkins server so that jenkins server can authenticate itself using this credentials.
 - To add docker server credentials in jenkins, we need to create a user called  `dockeradmin` in docker server.
-- Now, we need to give the docker credentials in jenkins server. `Manage Jenkins` > `Configure system`
+- Now, we need to give the docker credentials in jenkins server. `Manage Jenkins` > `Configure system` > `Publish over SSH` > `SSH Server` > `Add`
+  - `Name` : `docker-host`
+  - `Hostname`: give the ip address `ip addr` without `/32`
+  - `username`: `dockeradmin`
+  - `Advance` > use password authentication checkbox
+  - `password`: `dockeradmin` and test configuration
+- We need to enable the password based authentication in docker server,
+
+`vi /etc/ssh/sshd_config`
+
+```sh
+# EC2 use keys for remote access
+PasswordAuthentication yes
+```
+
+- restart ssh > `service sshd reload`
+- now test the configuration > apply and save
+
+### Jenkins job to copy artifacts onto Dockerhost
+
+- Create a new jenkins job called `deploy_on_docker`
+- Instead of choosing maven copy all the configurations from `deploy_on_tomcat_server`
+- Disable `PollSCM` for this job
+- Delete the `deploy on vm` post build action
+- Select `Send build artifacts over SSH` > this will send the artifacts to target server through ssh
+- Transfer set
+  - source files: `webapp/target/*.war`
+  - remove prefix (while copying it copies the directory structure as well): `webapp/target`
+  - remote directory: `.`
+  - exec command: ``
+- `apply` > `save`
+- `build now`
+
+To check if the file was transferred,
+
+```sh
+> su - dockeradmin
+> pwd
+> whoami
+> ls
+```
+
+### Create a Dockerfile to container
+
+- Now we need to copy the `webapp.war` to a docker container. We need to write a dockerfile which can create a tomcat server and host this war file.
+- In the docker host server create a dockerfile, `vi Dockerfile`
+
+```sh
+# Pull base image 
+From tomcat:8-jre8 
+
+# Maintainer 
+COPY ./webapp.war /usr/local/tomcat/webapps
+```
+
+- To create an image out of this,
+
+```sh
+# create an image called devops-project from current folder dockerfile
+> docker build -t devops-project .
+> docker images
+# create a container out of the image
+> docker run -d --name devops-container -p 8080:8080 devops-project
+```
+
+- Now if you go to the web browser `http://<ip_of_docker_server>:8080/webapp`
+
+### Deploying a war file on Docker container using Jenkins
+
+- Create a new job in jenkins server `deploy_on_container` > copy from: `deploy_on_docker`
+- Change post build actions, `exec command`
+
+```sh
+cd /home/dockeradmin; 
+docker build -t devops-image .;
+docker run -d --name devops-container -p 8080:8080 devops-image;
+```
+
+### Limitation of Jenkins as Deployment tool
+
+> Use `ansible` as deployment tool while `jenkins` as build tool.
+
+- Jenkins cant be used as a full-fledged deployment tools for example if the war file is already available then the file is going to fail.
+- So to overcome these problems we're going to use `ansible` as our deployment tool.
+- If you have 100s of deployment location then its a difficult task for jenkins. These kind of problem are hectic to handle with jenkins.
+- Hence we're only going to use jenkins as a `build tool` not a deployment tool.
 
 ## Integrating Ansible in pipeline
+
+Now we will integrate ansible to the pipeline, so we can deploy on docker.
+
+<details>
+  <summary>Integrating Ansible Architecture</summary>
+  <img src="./docs/3.png"/>
+</details>
+
+### Ansible Environment Setup
+
+> Read documentation on [how to setup an ansible environment](./notes/ansible/Ansible_installation.MD).
+
+- We need to create a user called `ansadmin` to create and store docker images in registry.
+- Follow the rest of the instructions in the installation file.
+- We need to enable the password based authentication in docker server, `vi /etc/ssh/sshd_config`,
+
+```sh
+# EC2 use keys for remote access
+PasswordAuthentication yes
+```
+
+- change the hostname to make it easier to identify,
+
+```sh
+> hostname ansible-control-node
+> sudo su -
+```
+
+- In the docker host server too create an `ansadmin` user, use the same password used in ansible server,
+
+```sh
+> useradd ansadmin
+> passwd ansadmin # enter the password and remember it 
+``` 
+
+- Now we need to copy the `pem` keys from ansible server to docker host ec2 server.
+
+```sh
+# in ansible ec2
+> sudo - ansadmin
+> ssh-copy-id ansadmin@<docker-ec2-ip> # provide the password for first time
+> ssh-copy-id localhost # so it copies the key under localhost
+> ssh ansadmin@<docker-ec2-ip> # now will be able to login to target system
+> exit
+```
+
+- We will create a folder for the files, we add permission so that it doesnt give an permission issue when copying the files.
+
+```sh
+> cd /opt
+> mkdir docker
+> sudo chown -R ansadmin:ansadmin /opt/docker # give full access to the folder
+> ls -l /opt
+```
+
+- Now will create a `host` file to check the connectivity. 
+
+```sh
+> cd /etc/ansible
+> sudo vi hosts
+```
+
+```txt
+<add-docker-host-ip>
+localhost
+```
+
+- Lets do a build test,
+
+```sh
+> ansible all -m ping
+```
+
+### Integrate Ansible with Jenkins
+
+> Create an ansible job in jenkins, look into this [documentation](./notes/jenkins_jobs/Deploy_on_Container_using_Ansible.MD).
+
+- Go into the jenkins control > `manage jenkins` > `configure system`
+- similar to docker host in publish over SSH add a new config
+  - `Name` : `ansible-server`
+  - `Hostname`: give the ip address of ansible host `ip addr` without `/32`
+  - `username`: `ansadmin`
+  - `Advance` > use password authentication checkbox
+  - `password`: `give the ansadmin password` and test configuration
+  - `apply` > `save`
+- Create a job > `deploy_on_container_using_ansible` > copy from: `deploy_on_container`
+  - SSH Name: `ansible-server`
+  - Remote directory: `//opt/docker`
+  - Exec command: ``
+- `Build now`
+- We also need to create a Dockerfile in the ansible server so that we can create the docker image.
+
+### Create an Ansible Playbook
 
 ## Integrating Kubernetes in pipeline
 
 ## License
 
-MIT c 2021 Murshid Azher
+[MIT](LICENSE) © 2021 Murshid Azher
