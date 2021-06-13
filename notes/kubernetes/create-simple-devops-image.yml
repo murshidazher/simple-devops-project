@@ -6,7 +6,7 @@
   - name: create docker image using war file
     command: docker build -t simple-devops-image:latest .
     args:
-      chdir: /opt/k8s-lab
+      chdir: /opt/kubernetes
 
   - name: create tag to image
     command: docker tag simple-devops-image yankils/simple-devops-image

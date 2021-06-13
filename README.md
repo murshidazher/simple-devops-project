@@ -44,8 +44,12 @@
     - [Setting up Kubernetes with AWS EC2](#setting-up-kubernetes-with-aws-ec2)
     - [Create deployment and service YAML files](#create-deployment-and-service-yaml-files)
     - [Integrate Ansible Playbooks with Kubernetes](#integrate-ansible-playbooks-with-kubernetes)
-    - [Create depl and service using Ansible](#create-depl-and-service-using-ansible)
+    - [Create deployment and service using Ansible](#create-deployment-and-service-using-ansible)
     - [Jenkins CD Job to deploy on kubernetes](#jenkins-cd-job-to-deploy-on-kubernetes)
+    - [Jenkins CI job for creating Docker image](#jenkins-ci-job-for-creating-docker-image)
+    - [Integrating Jenkins CI/CD job to deploy on k8s](#integrating-jenkins-cicd-job-to-deploy-on-k8s)
+    - [Automate deployment on k8s using Jenkins CI/CD](#automate-deployment-on-k8s-using-jenkins-cicd)
+    - [Setup CI/CD Job for k8s](#setup-cicd-job-for-k8s)
   - [License](#license)
 
 ## Overview
@@ -777,7 +781,7 @@ localhost
 
 - We will create [deployment](notes/kubernetes/kubernetes-valaxy-deployment.yml) and [service](notes/kubernetes/kubernetes-valaxy-service.yml) playbooks inside `/opt/kubernetes`. In the files, hosts: `kubernetes` is the hosts group we created in hosts file. The playbook will run on the ips under this group. We need to login as `root` user so thats why the yaml file mentions `user: root`.
 
-### Create depl and service using Ansible
+### Create deployment and service using Ansible
 
 - Delete the deployment and services from the `k8s-master-node` and deploy using the jenkins server
 
@@ -801,9 +805,75 @@ localhost
 > kubectl get deployments
 > kubectl get pods
 > kubectl get services
+> kubectl delete deployments valaxy-deployment
+> kubectl get services
+> kubectl delete services valaxy-services
 ```
 
 ### Jenkins CD Job to deploy on kubernetes
+
+> CD job which pull the latest image and deploys
+
+- Login to jenkins console
+- New item > `deploy_on_kubernetes_cd` > `free style job`
+- We just need to build with this job
+- So go to `post build action` > `send build artifacts over SSH`
+  - Name: `ansible-server`
+  - Exec:
+
+```sh
+ansible-playbook -i /opt/kubernetes/hosts /opt/kubernetes/kubernetes-valaxy-deployment.yml;
+ansible-playbook -i /opt/kubernetes/hosts /opt/kubernetes/kubernetes-valaxy-service.yml;
+```
+
+- Apply > Save
+- Build now
+
+### Jenkins CI job for creating Docker image
+
+> CI job to build an image from the war file
+
+- check the `hosts` file in `ansible-server` docker directory,
+
+```sh
+> cd /opt/docker
+> cat hosts
+localhost
+<docker-host-ip>
+[kubernetes]
+<master_node_ip>
+```
+- We also need to create a new image whenever we push a new code.
+- We will use `deploy_on_docker_container_using_ansible_playbooks` job which copies the war file to ansible-sever under `/opt/docker`
+- We will use the same `create-simple-devops-image.yml` playbook.
+- Move these files to `/opt/kubernetes` and edit the file to content of [this](notes/kubernetes/create-simple-devops-image.yml).
+
+```sh
+> cd /opt/docker
+> sudo mv Dockerfile create-simple-devops-image.yml /opt/kubernetes
+> cd /opt/kubernetes
+> vi create-simple-devops-image.yml 
+```
+
+- Change the folder permission of `/opt/kubernetes`
+
+```sh
+> ls -ld /opt/kubernetes
+> sudo chown -R ansadmin:ansadmin /opt/kubernetes
+> cd /opt/kubernetes
+> ls -l
+```
+
+- Now, create a new job `deploy_on_kubernetes_ci` > copy from: `deploy_on_docker_container_using_ansible_playbooks`
+  - Exec command : remove the second playbook command
+- Apply > Save
+- Build
+
+### Integrating Jenkins CI/CD job to deploy on k8s
+
+### Automate deployment on k8s using Jenkins CI/CD
+
+### Setup CI/CD Job for k8s
 
 ## License
 
