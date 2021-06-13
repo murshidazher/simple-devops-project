@@ -1,3 +1,4 @@
+# https://awspolicygen.s3.amazonaws.com/policygen.html
 resource "aws_iam_policy" "kube_jenkins_s3_policy" {
   name        = "kube_jenkins_s3_policy"
   path        = "/"
@@ -33,7 +34,32 @@ resource "aws_iam_policy" "kube_jenkins_s3_policy" {
 EOF
 }
 
+resource "aws_iam_policy" "kube_jenkins_route53_policy" {
+  name        = "kube_jenkins_route53_policy"
+  path        = "/"
+  description = "route53 policy for Instance "
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Stmt1623593721953",
+      "Action": "*",
+      "Effect": "Allow",
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
 resource "aws_iam_role_policy_attachment" "kube-s3-pol-attach" {
   role       = aws_iam_role.kube_jenkins_ec2_role.name
   policy_arn = aws_iam_policy.kube_jenkins_s3_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "kube-r53-pol-attach" {
+  role       = aws_iam_role.kube_jenkins_ec2_role.name
+  policy_arn = aws_iam_policy.kube_jenkins_route53_policy.arn
 }
