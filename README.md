@@ -48,8 +48,6 @@
     - [Jenkins CD Job to deploy on kubernetes](#jenkins-cd-job-to-deploy-on-kubernetes)
     - [Jenkins CI job for creating Docker image](#jenkins-ci-job-for-creating-docker-image)
     - [Integrating Jenkins CI/CD job to deploy on k8s](#integrating-jenkins-cicd-job-to-deploy-on-k8s)
-    - [Automate deployment on k8s using Jenkins CI/CD](#automate-deployment-on-k8s-using-jenkins-cicd)
-    - [Setup CI/CD Job for k8s](#setup-cicd-job-for-k8s)
   - [License](#license)
 
 ## Overview
@@ -865,15 +863,20 @@ localhost
 ```
 
 - Now, create a new job `deploy_on_kubernetes_ci` > copy from: `deploy_on_docker_container_using_ansible_playbooks`
-  - Exec command : remove the second playbook command
+  - Remote: `//opt//kubernetes`
+  - Exec command : remove the second playbook command and change the path name from `/opt/docker` to `/opt/kubernetes`. Moreover you dont need `--limit` flag since its mentioned in the playbook host.
 - Apply > Save
 - Build
 
 ### Integrating Jenkins CI/CD job to deploy on k8s
 
-### Automate deployment on k8s using Jenkins CI/CD
+> We will integrate CD job as a downstream job of CI. So that whenever the CI is executed and if its successful then it will execute the CD job.
 
-### Setup CI/CD Job for k8s
+- Go to the `deploy_on_kubernetes_ci` job > `configure`
+- Go to `post-build actions` > Add new post buid action > `Build other projects` > select `deploy_on_kubernetes_cd` > trigger only if the build is stable
+- Apply > Save
+
+💡 Though this job make ci and cd, the cd wont be triggered until we enable versioning for the image so that it knows the image has changed. This will be done by changing the `valaxy-deplo.yml` script manually or adding `rollout` functionality in the `valaxy-deplo.yml` script.
 
 ## License
 
